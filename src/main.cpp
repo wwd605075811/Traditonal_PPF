@@ -1,5 +1,4 @@
 #include <string>
-
 #include <pcl/point_types.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/io/pcd_io.h>
@@ -67,8 +66,6 @@ int main (int argc, char *argv[])
         viewer->spinOnce();
     }*/
 
-
-
     pcl::io::loadPCDFile(scene_file_path, *scene);
     cout << "scene file loaded:" << scene_file_path << endl;
     cout << "scene size:" << scene->size() << endl;
@@ -120,7 +117,6 @@ int main (int argc, char *argv[])
 
     /*pcl::PCDWriter writer;
     writer.write<PointNT> (outfile.c_str (), *scene_downsampled, false);*/
-
 
     // do the ppf matching work
     cout << "training..." << endl;

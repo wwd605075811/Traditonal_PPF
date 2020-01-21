@@ -1,7 +1,3 @@
-//
-// Created by wwd on 2019/12/24.
-//
-
 #pragma once
 
 //#include "targetver.h"

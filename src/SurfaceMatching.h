@@ -1,6 +1,3 @@
-//
-// Created by wwd on 2019/12/23.
-//
 #ifndef SURFACE_MATCHING_H
 #define SURFACE_MATCHING_H
 #include <iostream>

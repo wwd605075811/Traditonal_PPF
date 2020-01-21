@@ -1,15 +1,9 @@
-//
-// Created by wwd on 2019/12/24.
-//
-
 #ifndef PPF_PPF_H
 #define PPF_PPF_H
-
 #pragma once
 #include <iostream>
 #include<fstream>
 #include<vector>
-using namespace std;
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_cloud.h>
@@ -23,7 +17,6 @@ using namespace std;
 #include <pcl/common/common_headers.h>
 #include <pcl/console/parse.h>
 
-
 #include <pcl/ModelCoefficients.h>
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
@@ -34,6 +27,7 @@ using namespace std;
 #include <Eigen/Dense>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+using namespace std;
 using namespace Eigen;
 
 class PPF
@@ -43,8 +37,6 @@ public:
     void Set(float d_distance, int nAngle, int max_nDistance, int max_hashIndex);
 
     int CreateFeatureHashIndex(pcl::PointNormal  pn1, pcl::PointNormal  pn2);
-
-    void GPU_init();
 
     Eigen::Matrix4f   RotateAboutAnyVector(Vector3f  vec, float angle);
     Eigen::Matrix4f   CreateTransformation2AlignNormWithX(pcl::PointNormal  pn);
@@ -60,7 +52,6 @@ public:
     Vector3f  RotationMat2EulerAngles(Matrix3f  rotationMat);
     Matrix3f  EulerAnglesToRotationMatrix(Vector3f  EulerAngles);
     Matrix4f   EulerAnglesAndTranslation2Transformation( Vector3f  EulerAngles, Vector3f  translationVec);
-
 
     float  CreateAngle2TouchXZPostivePlane(pcl::PointNormal  pn, pcl::PointNormal  pn2);
 
@@ -87,11 +78,5 @@ public:
     int P4;
 
     ~PPF();
-
 };
-
-
-
-
-
 #endif //PPF_PPF_H

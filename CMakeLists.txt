@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 2.8 FATAL_ERROR)
 project(ppf)
 
 find_package(PCL 1.9 REQUIRED)
+
 #set(CMAKE_LIBRARY_PATH "/usr/local/cuda-10.2/lib64")
 find_package(CUDA QUIET REQUIRED)
 
