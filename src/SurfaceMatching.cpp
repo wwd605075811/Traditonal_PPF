@@ -2,6 +2,10 @@
 #include "stdafx.h"
 #include "SurfaceMatching.h"
 
+bool transformCompare(TransformWithProb trans1, TransformWithProb trans2){
+    return trans1.prob> trans2.prob;
+}
+
 SurfaceMatching::SurfaceMatching(pcl::PointCloud<pcl::PointNormal>::Ptr modelWithNormals) {
     this->accumSpace = NULL;
 
@@ -62,6 +66,8 @@ void SurfaceMatching::Train() {
         return;
     }
     //TODO: to remember Note 1 in README.md
+    // Finding the max pairwise distance is epxensive, so
+    // approximate it with the max difference between coords.
     pcl::PointNormal minpt, maxpt;
     pcl::getMinMax3D(*m_modelWithNormals, minpt, maxpt);
     float diameter = 0;
@@ -130,7 +136,7 @@ void SurfaceMatching::CudaTrain() {
     int *h_F3 = (int *) malloc(sizeof(int) * pointNum * pointNum);
     int *h_F4 = (int *) malloc(sizeof(int) * pointNum * pointNum);
 
-    ModelCuda(g_F1, g_F1_copy, h_other, h_hash, h_alpha, h_F1, h_F2, h_F3, h_F4);
+    modelPpf(g_F1, g_F1_copy, h_other, h_hash, h_alpha, h_F1, h_F2, h_F3, h_F4);
     cout << "GPU done!" << endl;
 
     //write the answer to the HashTable
@@ -205,26 +211,26 @@ void SurfaceMatching::CudaVotingWithHash() {
     int pointReference = 2048;                  //TODO: to remember Note 2 in README.md
     int pointNum = m_sceneWithNormals->size();
     int count = 0;
-    CudaPPFInfo *g_F1 = (CudaPPFInfo *) malloc(sizeof(CudaPPFInfo) * pointReference);
-    CudaPPFInfo *g_F2 = (CudaPPFInfo *) malloc(sizeof(CudaPPFInfo) * pointNum);
+    CudaPPFInfo *pointRef = (CudaPPFInfo *) malloc(sizeof(CudaPPFInfo) * pointReference);
+    CudaPPFInfo *pointScene = (CudaPPFInfo *) malloc(sizeof(CudaPPFInfo) * pointNum);
     for (int i = 0; i < m_sceneWithNormals->size(); i++) {
         if (sceneLabelList[i] == 2) {
-            g_F1[count].x = m_sceneWithNormals->points[i].x;
-            g_F1[count].y = m_sceneWithNormals->points[i].y;
-            g_F1[count].z = m_sceneWithNormals->points[i].z;
-            g_F1[count].nomal_x = m_sceneWithNormals->points[i].normal_x;
-            g_F1[count].nomal_y = m_sceneWithNormals->points[i].normal_y;
-            g_F1[count].nomal_z = m_sceneWithNormals->points[i].normal_z;
+            pointRef[count].x = m_sceneWithNormals->points[i].x;
+            pointRef[count].y = m_sceneWithNormals->points[i].y;
+            pointRef[count].z = m_sceneWithNormals->points[i].z;
+            pointRef[count].nomal_x = m_sceneWithNormals->points[i].normal_x;
+            pointRef[count].nomal_y = m_sceneWithNormals->points[i].normal_y;
+            pointRef[count].nomal_z = m_sceneWithNormals->points[i].normal_z;
             count++;
         }
     }
     for (int i = 0; i < m_sceneWithNormals->size(); i++) {
-        g_F2[i].x = m_sceneWithNormals->points[i].x;
-        g_F2[i].y = m_sceneWithNormals->points[i].y;
-        g_F2[i].z = m_sceneWithNormals->points[i].z;
-        g_F2[i].nomal_x = m_sceneWithNormals->points[i].normal_x;
-        g_F2[i].nomal_y = m_sceneWithNormals->points[i].normal_y;
-        g_F2[i].nomal_z = m_sceneWithNormals->points[i].normal_z;
+        pointScene[i].x = m_sceneWithNormals->points[i].x;
+        pointScene[i].y = m_sceneWithNormals->points[i].y;
+        pointScene[i].z = m_sceneWithNormals->points[i].z;
+        pointScene[i].nomal_x = m_sceneWithNormals->points[i].normal_x;
+        pointScene[i].nomal_y = m_sceneWithNormals->points[i].normal_y;
+        pointScene[i].nomal_z = m_sceneWithNormals->points[i].normal_z;
     }
     CudaOtherInfo h_other;
     h_other.g_P1 = ppfExtractor.P1;
@@ -240,42 +246,92 @@ void SurfaceMatching::CudaVotingWithHash() {
     h_other.hashNum = hashPPFNum;
     h_other.modelPointsNum = m_modelWithNormals->size();
 
+    //store model point in Array and send it to kernel
+    CudaPPFInfo *pointModel = (CudaPPFInfo *) malloc(sizeof(CudaPPFInfo) * m_modelWithNormals->size());
+    for (int i = 0; i < m_modelWithNormals->size(); i++) {
+        pointModel[i].x = m_modelWithNormals->points[i].x;
+        pointModel[i].y = m_modelWithNormals->points[i].y;
+        pointModel[i].z = m_modelWithNormals->points[i].z;
+        pointModel[i].nomal_x = m_modelWithNormals->points[i].normal_x;
+        pointModel[i].nomal_y = m_modelWithNormals->points[i].normal_y;
+        pointModel[i].nomal_z = m_modelWithNormals->points[i].normal_z;
+    }
+
     float *h_alpha = (float *) malloc(sizeof(float) * pointNum * pointReference);
     int *h_hash = (int *) malloc(sizeof(int) * pointNum * pointReference);
     int *h_F1 = (int *) malloc(sizeof(int) * pointNum * pointReference);
     int *h_F2 = (int *) malloc(sizeof(int) * pointNum * pointReference);
     int *h_F3 = (int *) malloc(sizeof(int) * pointNum * pointReference);
     int *h_F4 = (int *) malloc(sizeof(int) * pointNum * pointReference);
-    int *h_accumSpace = (int *) malloc(sizeof(int) * m_modelWithNormals->size() * pointReference);
+    int *votingPoint= (int *) malloc(sizeof(int) * pointReference);
+    int *votingAngle= (int *) malloc(sizeof(int) * pointReference);
+    int *votingNumber=(int *) malloc(sizeof(int) * pointReference);
 
-    Reference2NumCuda(g_F1, g_F2, h_other, h_hash, h_alpha, h_F1, h_F2, h_F3,
-                      h_F4, modelHashValue, modelHashKeyIndex, h_accumSpace);
+    voting(pointRef, pointScene, h_other, h_hash, h_alpha, h_F1, h_F2, h_F3,h_F4, modelHashValue,
+           modelHashKeyIndex, pointModel, votingPoint, votingAngle, votingNumber);
+
+   // getPpfAndVoting(pointRef, pointScene, h_other, h_hash, h_alpha, h_F1, h_F2, h_F3,h_F4, modelHashValue,
+    //        modelHashKeyIndex, pointModel, votingPoint, votingAngle, votingNumber);
 
     cout << "GPU Voting done!" << endl;
-    //printf file to check the value
-    /*ofstream outFile("scene_ppf_cuda.txt");
-    for (int i = 0; i < 2019; i++) {
-        outFile << i * 5 << "****************************" << endl;
-        for (int j = 0; j < m_sceneWithNormals->size(); j++) {
-            if ((i * 5) != j) {
-                if (h_fromGPU_F1[i * PointNum + j] > ppfExtractor.max_nDistance);   //not a correct value
-                else {
-                    outFile << j << "--" << h_fromGPU_hash[i * PointNum + j] << " " << h_fromGPU_F1[i * PointNum + j]
-                            << " " << h_fromGPU_F2[i * PointNum + j] << " " << h_fromGPU_F3[i * PointNum + j]
-                            << " " << h_fromGPU_F4[i * PointNum + j] << " ";
-                }
-            }
+
+    /*for (int l = 0; l < pointReference; ++l) {
+        printf("R=%ld M=%ld A=%ld N=%ld\n",l,votingPoint[l],votingAngle[l],votingNumber[l]);
+    }*/
+    /*votingPoint[2018] = 10;
+    votingAngle[2018] = 5;
+    votingNumber[2018] = 20;*/
+
+
+    //add votes result into transformdataSet
+    int transformation_ID = 0;
+    for (int i = 0; i < (m_sceneWithNormals->size()); i++) {
+        if (sceneLabelList[i] == 2) {
+
+            votingValueList.push_back(votingNumber[i/5]);  //step=5
+
+            pcl::PointNormal ps = m_sceneWithNormals->points[i];
+            pcl::PointNormal pm = m_modelWithNormals->points[votingPoint[i/5]];
+            float rot_angle = votingAngle[i/5] * ppfExtractor.d_angle + ppfExtractor.Min_angle;
+
+            Matrix4f Trans_Mat = ppfExtractor.CreateTransformationFromModelToScene(pm, ps, rot_angle);
+            Eigen::Vector4f quaternion = ppfExtractor.RotationMatrixToQuaternion(Trans_Mat.block(0, 0, 3, 3));
+            vector<float> curTransData;
+            curTransData.push_back(quaternion(0));
+            curTransData.push_back(quaternion(1));
+            curTransData.push_back(quaternion(2));
+            curTransData.push_back(quaternion(3));
+            curTransData.push_back(Trans_Mat(0, 3));
+            curTransData.push_back(Trans_Mat(1, 3));
+            curTransData.push_back(Trans_Mat(2, 3));
+
+            transformdataSet.push_back(curTransData);
+            transformation_ID++;
+        }
+    }
+    cout << "cuda is over!" << endl;
+
+
+   /* //export train_model.txt
+    ofstream  outFile("transformation.txt");
+
+    outFile << transformdataSet.size() << endl;
+    for (int i = 0; i < transformdataSet.size(); i++)
+    {
+        outFile << i << " " << transformdataSet[i].size()<<" ";
+        for (int j = 0; j< transformdataSet[i].size(); j++)
+        {
+            outFile << transformdataSet[i][j]<< " ";
         }
         outFile << endl;
+
     }
-    outFile.close();
-    cout << "cuda_file has written !" << endl;*/
+    outFile.close();*/
 }
 
 void SurfaceMatching::Voting() {
-    CudaVotingWithHash();
-    cout << "cuda is over!" << endl;
 
+    CudaVotingWithHash();
     int transformation_ID = 0;
     for (int i = 0; i < m_sceneWithNormals->size(); i++) {
         if (sceneLabelList[i] == 2) {
@@ -340,15 +396,16 @@ void SurfaceMatching::Voting() {
                     }
                 }
             }
-            // cout << "i:" << i <<" idy_max:"<<idy_max<< endl;
-            // cout << "   MaxAccum:  " << maxAccum << endl;
+            //cout << "i:" << i <<" idy_max:"<<idy_max<<" MaxAccum:"<<maxAccum<<" Angle:"<<idx_max<<endl;
             votingValueList.push_back(maxAccum);
 
             pcl::PointNormal ps = m_sceneWithNormals->points[i];
             pcl::PointNormal pm = m_modelWithNormals->points[idy_max];
             float rot_angle = idx_max * ppfExtractor.d_angle + ppfExtractor.Min_angle;
+
             Matrix4f Trans_Mat = ppfExtractor.CreateTransformationFromModelToScene(pm, ps, rot_angle);
             //	cout << "Trans_mat: " << transformation_ID << "     VotingValue: " << maxAccum << endl;
+
 
             Eigen::Vector4f quaternion = ppfExtractor.RotationMatrixToQuaternion(Trans_Mat.block(0, 0, 3, 3));
             //	cout << "quaternion:  " << quaternion(0) << " " << quaternion(1) << " " << quaternion(2) << quaternion(3) << endl;
@@ -366,6 +423,7 @@ void SurfaceMatching::Voting() {
             transformation_ID++;
         }///sceneLabelList[i] == 2
     }
+
 }
 
 bool SurfaceMatching::isFeatureSimilar(int dis_thresh, int angle_thresh, int F1, int cur_F1, int F2,
@@ -375,4 +433,124 @@ bool SurfaceMatching::isFeatureSimilar(int dis_thresh, int angle_thresh, int F1,
         return false;
 
     return  true;
+}
+
+void SurfaceMatching::CreateTranformtion_HCluster(float angle_thresh, float dis_thresh)
+{
+    cout<<"inter the HCluter"<<endl;
+
+    HCluster  cluster;
+    cluster.SetThresholds(angle_thresh, dis_thresh);
+    cout<<"inter the HCluter2"<<endl;
+    cluster.CreateDataSet(transformdataSet, votingValueList);//从内存加载
+    cout<<"inter the HCluter3"<<endl;
+    cluster.CreateCluster();
+
+    cout<<"inter the HCluter1"<<endl;
+
+
+    vector< vector<float> >  centroidList;
+    vector< int >  clusterLabelList;
+    cluster.GetCentroidsAndClusterLabels(centroidList, clusterLabelList);
+
+    int K = centroidList.size();
+    cout << "Cluster Number:  " <<K<< endl;
+    vector< int > totalVotingListForKCluster(K,0);
+    for (int i = 0; i < clusterLabelList.size(); i++)
+    {
+        int clusterNo = clusterLabelList[i];
+        totalVotingListForKCluster[clusterNo] += votingValueList[i];
+    }
+
+    ofstream fout;
+    fout.open("transformationList.txt");
+    if (!fout)
+    {
+        cout << "file transformationList.txt open failed" << endl;
+        exit(0);
+    }
+
+    cout<<"inter the HCluter2"<<endl;
+
+
+    float sumVoting = 0;
+    for (int i = 0; i < K; i++)
+    {
+        sumVoting += totalVotingListForKCluster[i];
+    }
+
+    int maxVotingNo = -1;
+    int maxVoting = -1;
+    for (int i = 0; i < K; i++)
+    {
+        if (maxVoting < totalVotingListForKCluster[i])
+        {
+            maxVoting = totalVotingListForKCluster[i];
+            maxVotingNo = i;
+        }
+
+        vector<float>  centrod = centroidList[i];
+        fout << totalVotingListForKCluster[i] << "  " << centrod[0] << " " << centrod[1] << "  " << centrod[2] << " " << centrod[3] << " " << centrod[4] << " " << centrod[5] << " " << centrod[6] << " " << endl;
+
+        Vector4f  quaterniondVec;
+        quaterniondVec[0] = centrod[0];
+        quaterniondVec[1] = centrod[1];
+        quaterniondVec[2] = centrod[2];
+        quaterniondVec[3] = centrod[3];
+
+        Vector3f  translationVec;
+        translationVec[0] = centrod[4];
+        translationVec[1] = centrod[5];
+        translationVec[2] = centrod[6];
+
+        Matrix3f  rot_mat = ppfExtractor.QuaternionToRotationMatrix(quaterniondVec);
+        Eigen::Matrix4f transform_mat = ppfExtractor.RotationAndTranslation2Transformation(rot_mat, translationVec);
+        float prob = totalVotingListForKCluster[i] / sumVoting;
+
+        // std::cout << "before icp:" << std::endl;
+        // std::cout << transform_mat << std::endl;
+
+        // pcl::PointCloud<pcl::PointNormal> transformed_cloud;
+        // pcl::transformPointCloud (*m_modelWithNormals, transformed_cloud, transform_mat);
+
+        // pcl::PointCloud<pcl::PointNormal>::Ptr input_cloud =  transformed_cloud.makeShared();
+        // pcl::IterativeClosestPoint<pcl::PointNormal, pcl::PointNormal> icp;
+        // icp.setInputSource(input_cloud);
+        // icp.setInputTarget(m_sceneWithNormals);
+        // // icp.setMaximumIterations(10000);
+        // pcl::PointCloud<pcl::PointNormal> Final;
+        // icp.align(Final);
+
+        // Matrix4f transform_mat_icp =  icp.getFinalTransformation();
+
+        // std::cout << "after icp:" << std::endl;
+        // std::cout << transform_mat_icp << std::endl;
+
+        TransformWithProb trans;
+        trans.prob = prob;
+        trans.transform_mat = transform_mat;
+        // tmp.transform_mat = transform_mat_icp;
+        transformMatList.push_back(trans);
+
+    }
+
+    cout<<"inter the HCluter666"<<endl;
+
+
+    std::sort(transformMatList.begin(), transformMatList.end(), transformCompare);
+
+    cout << "Best:  " << transformMatList[BEST_TRANS_ID].transform_mat << endl;
+    cout << "Probability:    " << transformMatList[BEST_TRANS_ID].prob << endl;
+    cout << endl;
+}
+
+TransformWithProbVector SurfaceMatching::getTransforms(){
+    return  transformMatList;
+}
+
+pcl::PointCloud<pcl::PointNormal>::Ptr SurfaceMatching::getBestResult()
+{
+    pcl::PointCloud<pcl::PointNormal>::Ptr transformed_cloud(new pcl::PointCloud<pcl::PointNormal>());
+    pcl::transformPointCloud (*m_modelWithNormals, *transformed_cloud, transformMatList[BEST_TRANS_ID].transform_mat);
+    return transformed_cloud;
 }

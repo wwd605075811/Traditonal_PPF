@@ -13,6 +13,13 @@
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/copy.h>
+#include <sys/time.h>
+#include <Eigen/Core>
+#include <Eigen/Dense>
+
+
+
+using namespace Eigen;
 using namespace std;
 struct CudaPPFInfo {
     float x;
@@ -49,11 +56,16 @@ struct CudaOtherInfo {
 };
 
 extern "C" {
-void ModelCuda(CudaPPFInfo *h_Pc, CudaPPFInfo *h_Pc_copy, CudaOtherInfo h_other, int *h_hash,
+void modelPpf(CudaPPFInfo *h_Pc, CudaPPFInfo *h_Pc_copy, CudaOtherInfo h_other, int *h_hash,
                float *h_alpha, int *h_F1, int *h_F2, int *h_F3, int *h_F4);
 
-void Reference2NumCuda(CudaPPFInfo *h_Pc, CudaPPFInfo *h_Pc_copy, CudaOtherInfo h_other,
-                       int *h_hash,float *h_alpha, int *h_F1, int *h_F2, int *h_F3,int *h_F4,
-                       PPInfo *modelHashValue, int *modelHashKeyIndex, int *h_accumSpace);
+void getPpfAndVoting(CudaPPFInfo *pointRef, CudaPPFInfo *pointScene, CudaOtherInfo h_other,
+                    int *h_hash,float *h_alpha, int *h_F1, int *h_F2, int *h_F3,int *h_F4,
+                    PPInfo *modelHashValue, int *modelHashKeyIndex, CudaPPFInfo *pointModel,
+                    int *votingPoint, int *votingAngle, int *votingNumber);
+
+void voting(CudaPPFInfo *pointRef, CudaPPFInfo *pointScene, CudaOtherInfo h_other, int *h_hash, float *h_alpha,
+            int *h_F1, int *h_F2, int *h_F3, int *h_F4, PPInfo *modelHashValue, int *modelHashKeyIndex,
+            CudaPPFInfo *pointModel, int *votingPoint, int *votingAngle, int *votingNumber);
 }
 #endif

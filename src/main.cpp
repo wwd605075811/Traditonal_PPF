@@ -12,7 +12,7 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/segmentation/sac_segmentation.h>
-
+#include <pcl/registration/icp.h>
 #include <fstream>
 #include <iostream>
 #include "SurfaceMatching.h"
@@ -28,10 +28,10 @@ int main (int argc, char *argv[])
 {
       ///The file to read from.
     string model_file_path = "../data/component.pcd";
-    string outfile = "../data/d1.pcd";
+    string outfile = "../data/scnenwwwwwwwww.pcd";
 
       ///The file to output to.
-    string scene_file_path = "../data/scene_noBackground.pcd";
+    string scene_file_path = "../data/scene_downsample_noground.pcd";
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr scene(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::PointCloud<pcl::Normal>::Ptr scene_normals(new pcl::PointCloud<pcl::Normal>());
@@ -66,11 +66,11 @@ int main (int argc, char *argv[])
         viewer->spinOnce();
     }*/
 
-    pcl::io::loadPCDFile(scene_file_path, *scene);
-    cout << "scene file loaded:" << scene_file_path << endl;
-    cout << "scene size:" << scene->size() << endl;
+    pcl::io::loadPCDFile(scene_file_path, *scene_downsampled);
+    cout <<endl<< "scene file loaded:" << scene_file_path << endl;
+    cout << "scene size:" << scene_downsampled->size() << endl;
 
-    ///caculate background
+    /*///caculate background
     pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
     // Create the segmentation object
@@ -87,15 +87,15 @@ int main (int argc, char *argv[])
     cout << "Background plane size: " << inliers->indices.size() << endl;
     cout << "Size of Foreground points:  " << scene->size() - inliers->indices.size() << endl;
 
-    /*///segment the background
+    ///segment the background
     pcl::PointCloud<pcl::PointXYZ>::Ptr scene_without_plane(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::ExtractIndices<pcl::PointXYZ> eifilter (true);
     eifilter.setInputCloud (scene);
     eifilter.setIndices (inliers);
     eifilter.setNegative (true);
-    eifilter.filter (*scene_without_plane);*/
-    /*pcl::PCDWriter writer;
-     writer.write<pcl::PointXYZ> (outfile.c_str (), *scene_without_plane, false);*/
+    eifilter.filter (*scene_without_plane);
+    *//*pcl::PCDWriter writer;
+     writer.write<pcl::PointXYZ> (outfile.c_str (), *scene_without_plane, false);*//*
 
     /// estimate normals of scene (too many ways, why chose this?)
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree_scene(new pcl::search::KdTree<pcl::PointXYZ>());
@@ -113,7 +113,7 @@ int main (int argc, char *argv[])
     sor_scene.setInputCloud(scene_with_normals);
     sor_scene.setLeafSize(scene_leaf_size, scene_leaf_size, scene_leaf_size);
     sor_scene.filter(*scene_downsampled);
-    cout << "scene_downsampled size:" << scene_downsampled->size() << endl;
+    cout << "scene_downsampled size:" << scene_downsampled->size() << endl;*/
 
     /*pcl::PCDWriter writer;
     writer.write<PointNT> (outfile.c_str (), *scene_downsampled, false);*/
@@ -124,11 +124,91 @@ int main (int argc, char *argv[])
     cout<<"training is over!"<<endl;
     match.setScene(scene_downsampled);
     cout << "matching..." << endl;
-    match.Voting();
+    match.CudaVotingWithHash();
     cout<<"voting is over!"<<endl;
 
-    /*pcl::PCDWriter writer;
-    writer.write<pcl::Normal> (outfile.c_str (), *scene_normals, false);*/
+    struct timeval timeEnd1, timeEnd2, timeEnd3, timeSystemStart;
+    double systemRunTime;
+    gettimeofday(&timeSystemStart, NULL);
+
+    match.CreateTranformtion_HCluster(0.2, 5);  // 参数待定
+
+    PointCloudNT::Ptr bestResult = match.getBestResult();
+
+    TransformWithProbVector transforms = match.getTransforms();
+
+    for (TransformWithProb &transform : transforms) {
+        cout << "probability: " << transform.prob << endl;
+        Eigen::Matrix4f transform_mat = transform.transform_mat;
+        cout << "before icp:" << endl;
+        cout << transform_mat << endl;
+        PointCloudNT::Ptr result_cloud(new PointCloudNT());
+        pcl::transformPointCloud(*model_downsampled, *result_cloud, transform_mat);
+
+        PointCloudNT::Ptr input_cloud = result_cloud;
+
+        pcl::IterativeClosestPoint<PointNT, PointNT> icp;
+        icp.setInputSource(input_cloud);
+        icp.setInputTarget(scene_downsampled);
+        // Set the max correspondence distance to 5cm (e.g., correspondences with higher distances will be ignored)
+        icp.setMaxCorrespondenceDistance(10);
+        // Set the maximum number of iterations (criterion 1)
+        // icp.setMaximumIterations (50);
+        // Set the transformation epsilon (criterion 2)
+        // icp.setTransformationEpsilon (1e-8);
+        // Set the euclidean distance difference epsilon (criterion 3)
+        // icp.setEuclideanFitnessEpsilon (1);
+        // icp.setMaximumIterations(10000);
+        PointCloudNT Final;
+        icp.align(Final);
+        PointCloudNT::Ptr result_cloud_icp = Final.makeShared();
+        Eigen::Matrix4f transform_mat_icp = icp.getFinalTransformation();
+
+        cout << "after icp:" << endl;
+        cout << transform_mat_icp * transform_mat << endl;
+
+        pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer());
+        ColorHandlerT red(model_downsampled, 255, 0, 0);
+        viewer->addPointCloud<PointNT>(model_downsampled, red, "model_downsampled");
+        viewer->setPointCloudRenderingProperties(
+                pcl::visualization::PCL_VISUALIZER_POINT_SIZE,
+                5, "model_downsampled");
+        viewer->addPointCloudNormals<PointNT, PointNT>(
+                model_downsampled,
+                model_downsampled,
+                1, 1,
+                "model_downsampled_normals");
+
+        ColorHandlerT yellow(scene_downsampled, 255, 255, 0);
+        viewer->addPointCloud<PointNT>(scene_downsampled, yellow, "scene_downsampled");
+        viewer->setPointCloudRenderingProperties(
+                pcl::visualization::PCL_VISUALIZER_POINT_SIZE,
+                4, "scene_downsampled");
+        viewer->addPointCloudNormals<PointNT, PointNT>(
+                scene_downsampled,
+                scene_downsampled,
+                1, 1,
+                "scene_downsampled_normals");
+
+        // viewer->addPointCloud(result_cloud, red, "result_cloud");
+        // viewer->setPointCloudRenderingProperties(
+        //     pcl::visualization::PCL_VISUALIZER_POINT_SIZE,
+        //     4, "result_cloud");
+
+        ColorHandlerT green(result_cloud_icp, 0, 255, 0);
+        viewer->addPointCloud<PointNT>(result_cloud_icp, green, "result_cloud_icp");
+        viewer->setPointCloudRenderingProperties(
+                pcl::visualization::PCL_VISUALIZER_POINT_SIZE,
+                4, "result_cloud_icp");
+
+                while (!viewer->wasStopped()) {
+            viewer->spinOnce();
+                }
+                viewer->resetStoppedFlag();
+                viewer->close();
+    }
+
+
 }
 
 

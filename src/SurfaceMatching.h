@@ -26,7 +26,7 @@
 
 #include "PPF.h"
 #include "kernel.cuh"
-//#include "HCluster.h"
+#include "HCluster.h"
 
 #include <Eigen/StdVector>
 
@@ -51,6 +51,7 @@ public:
     pcl::PointCloud<pcl::PointNormal>::Ptr m_sceneWithNormals;
 
     vector<vector<PPInfo>>  ppfModel;
+    vector<vector<PPInfo>>  ppfScene;
     void Train();
     void CudaTrain();
 
