@@ -1,6 +1,4 @@
-#include "stdafx.h"
-#include "PPF.h"
-
+#include "../include/PPF.h"
 
 PPF::PPF()
 {
@@ -50,11 +48,9 @@ void PPF::Set(float d_distance, int nAngle,  int max_nDistance, int max_hashInde
 
 }
 
-
 PPF::~PPF()
 {
 }
-
 
 int PPF::CreateFeatureHashIndex(pcl::PointNormal  pn1, pcl::PointNormal  pn2)
 {
@@ -86,9 +82,7 @@ int PPF::CreateFeatureHashIndex(pcl::PointNormal  pn1, pcl::PointNormal  pn2)
     return hashIndex;
 }
 
-
-
-Eigen::Matrix4f   PPF::RotateAboutAnyVector(Vector3f  vec,  float angle)
+Eigen::Matrix4f PPF::RotateAboutAnyVector(Vector3f  vec,  float angle)
 {
     // normalize axis vector  
     vec.normalize();
@@ -111,55 +105,44 @@ Eigen::Matrix4f   PPF::RotateAboutAnyVector(Vector3f  vec,  float angle)
 
 }
 
-Eigen::Matrix4f  PPF::CreateTransformation2AlignNormWithX(pcl::PointNormal  pn)
+Eigen::Matrix4f  PPF::CreateTransformation2AlignNormWithX(pcl::PointNormal pn)
 {
-    Vector3f  pt(pn.x, pn.y, pn.z);
-    Vector3f  normal(pn.normal_x, pn.normal_y, pn.normal_z);
-
-    Vector3f  rotAxisVec;
-    Vector3f  x_axis(1, 0, 0);
-    float rot_angle = 0;
-    float cosAngle = normal.dot(x_axis);
-    if (fabs(cosAngle - 1) < 0.000001) //与x轴重合
-    {
-        rotAxisVec = x_axis;
-        rot_angle = 0;
-
-    }
-    else
-    if (fabs(cosAngle + 1) < 0.000001) //与-x轴重合
-    {
-        rotAxisVec = Vector3f(0,0,1);
-        rot_angle = M_PI;
-
-    }
-    else
-    {
-        rotAxisVec = normal.cross(x_axis);
-        Vector3f  newYVec = rotAxisVec.cross(x_axis);
-
-        float  x_part = normal.dot(x_axis);
-        float  y_part = normal.dot(newYVec);
-
-        float angle_from_x_to_normal = atan2(y_part, x_part);
-
-
-        rot_angle = -angle_from_x_to_normal;  //将法向转到x轴的方向
-
-    }
-
-    Matrix4f rot_mat = RotateAboutAnyVector(rotAxisVec, rot_angle);
-
-    Matrix4f   translation_mat;
+    Matrix4f translation_mat;
     translation_mat.setIdentity();
-    translation_mat(0, 3) = -pt[0];
-    translation_mat(1, 3) = -pt[1];
-    translation_mat(2, 3) = -pt[2];
+    translation_mat(0, 3) = -pn.x;
+    translation_mat(1, 3) = -pn.y;
+    translation_mat(2, 3) = -pn.z;
 
-    Matrix4f     transform_mat = rot_mat*translation_mat;
+    float thetaY;
+    Matrix4f rot_y;
+    thetaY = atan2(pn.normal_z, pn.normal_x);
+    rot_y(0,0) = cosf(thetaY); rot_y(0,1) = 0;
+    rot_y(0,2) = sinf(thetaY); rot_y(0,3) = 0;
+    rot_y(1,1) = 1; rot_y(1,0) = 0; rot_y(1,2) = 0; rot_y(1,3) = 0;
+    rot_y(2,0) = -1*rot_y(0,2); rot_y(2,1) = 0;
+    rot_y(2,2) = rot_y(0,0); rot_y(2,3) = 0;
+    rot_y(3,3) = 1; rot_y(3,0) = 0; rot_y(3,1) = 0; rot_y(3,2) = 0;
 
-    return  transform_mat;
+    Vector4f n_tmp(pn.normal_x, pn.normal_y, pn.normal_z, 1);
+    n_tmp = rot_y * n_tmp;
 
+    float thetaZ;
+    Matrix4f rot_z;
+    thetaZ = -1*atan2(n_tmp[1], n_tmp[0]);
+    rot_z(0,0) = cosf(thetaZ); rot_z(0,2) = 0;
+    rot_z(1,0) = sinf(thetaZ); rot_z(1,2) = 0;
+    rot_z(0,1) = -1*rot_z(1,0); rot_z(0,3) = 0;
+    rot_z(1,1) = rot_z(0,0); rot_z(1,3) = 0;
+    rot_z(2,2) = 1; rot_z(2,0) = 0; rot_z(2,1) = 0; rot_z(2,3) = 0;
+    rot_z(3,3) = 1; rot_z(3,0) = 0; rot_z(3,1) = 0; rot_z(3,2) = 0;
+
+    Matrix4f T_tmp;
+    T_tmp = rot_z * rot_y;
+
+    Matrix4f T_m_g;
+    T_m_g = T_tmp * translation_mat;
+
+    return  T_m_g;
 }
 
 float  PPF::CreateAngle2TouchXZPostivePlane(pcl::PointNormal  pn,  pcl::PointNormal  pn2)
@@ -229,7 +212,6 @@ Vector4f   PPF::RotationMatrixToQuaternion(Matrix3f  rotationMat)
     //RotationMatrix to EulerAngles
     Eigen::Vector3f ea1 = rotationMat.eulerAngles(2, 1, 0);
 
-
     //EulerAngles to RotationMatrix
     Eigen::Matrix3f  R;
     R = Eigen::AngleAxisf(ea1[0], Eigen::Vector3f::UnitZ())
@@ -252,6 +234,7 @@ Vector4f   PPF::RotationMatrixToQuaternion(Matrix3f  rotationMat)
     return  quaterniondVec;
 
 }
+
 Matrix4f   PPF::RotationAndTranslation2Transformation(Matrix3f  rotationMat, Vector3f  translationVec)
 {
     Matrix3f  rot_mat = rotationMat;
@@ -284,7 +267,6 @@ Matrix3f  PPF::QuaternionToRotationMatrix(Vector4f  quaterniondVec)
 
 }
 
-
 Matrix4f   PPF::EulerAnglesAndTranslation2Transformation(Vector3f  EulerAngles, Vector3f  translationVec)
 {
     Matrix3f  rot_mat = EulerAnglesToRotationMatrix(EulerAngles);
@@ -303,7 +285,6 @@ Matrix4f   PPF::EulerAnglesAndTranslation2Transformation(Vector3f  EulerAngles, 
     return  trans_mat;
 
 }
-
 
 Matrix3f  PPF::EulerAnglesToRotationMatrix(Vector3f  EulerAngles)
 {

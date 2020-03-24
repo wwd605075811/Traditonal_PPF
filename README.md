@@ -1,15 +1,24 @@
-1.在计算model ppf 时，数据筛选边界条件在TODO1 处定义，可能存在后续问题，记录
+1.NOTE:在调用PCL库中的法线计算函数时，噪声点法向量为NAN，在SurfaceMatching.cpp 的52行去除(不太好，后面改进).
+
+2.参数列表：
 
 ```c++
-d_distance= diameter * tau_d  	//
-diameter=点云模型的棋盘最大距离（不是欧式最大距离）
-F1 = int(dis / d_distance)=(dis/diameter)/tau_d
-max_nDistance=(1/tau_d)+5 
-    
-if (F1 > this->max_nDistance)
-    return -1;
-所以现在很可能存在 模型中的点云无法采集的情况(空间中的四个角)
+//模型点降采样率
+model_leaf_size = 1.5f;   
+//场景点降采样率
+scene_leaf_size = 1.8f;	  
+//model采样步长(选计算ppf的点，1代表每个model点)
+int refPointDownsampleFactor = 1;  
+//scene采样步长(5代表每5个点取一个计算ppf)
+int sceneStep =5;	
+//对于空间距离的缩小率？(没整清楚)
+float tau_d = 0.05; 
+//聚类时判定是否可以划分为一个类时的标准,即angle和dis小于某个设定阈值
+CreateTranformtion_HCluster(float angle_thresh=0.2, float dis_thresh=0.5);
+//设置icp迭代时最多可移动距离, 初次在结果周围选择 其平方范围内的点(具体在库里)
+icp.setMaxCorrespondenceDistance(8);
+//计算评分
+double score=icp.getFitnessScore(5);
 ```
 
-2. 目前采用的是线程数大于points，额外的线程也计算，但是输入值为0，计算值也不采纳。4096为大于当前model points的CUDA填充线程数(CUDA每个block塞满会更快，更利于地址对齐)。所以后期写一个计算函数，计算对于当前点云数分配的线程数的 函数。
-3. 发现在调用PCL库中的法线计算函数时，最后一个点的法向量计算不出来！为NAN
+​	

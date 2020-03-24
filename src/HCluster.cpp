@@ -1,10 +1,6 @@
-//
-// Created by wwd on 2020/2/14.
-//
+#include "../include/HCluster.h"
 
-#include "HCluster.h"
-
-struct  Vote
+struct Vote
 {
     int id;
     int value;
@@ -38,8 +34,9 @@ void HCluster::CreateDataSet(vector< vector<float> >&  transformationDataSet, ve
     rowLen = 0;
     if (dataSet.size() > 0)
     {
-        colLen = dataSet[0].size();
-        rowLen = dataSet.size();
+        colLen = dataSet[0].size();  //the size is 7, which contains one quaternion and one Trans_Mat.
+        rowLen = dataSet.size();  //I think this size is means that the reference points' size.
+        cout<< "In the CreateDataSet. colLen:" <<colLen <<" rowLen:" <<rowLen <<endl;
     }
 }
 
@@ -103,8 +100,6 @@ float HCluster::distEclud(vector<float> &v1, vector<float> &v2)
 
 void HCluster::CreateCluster()
 {
-    cout<<"CreatCluter1"<<endl;
-
     vector<Vote> voteList;
     for (int i = 0; i < rowLen; i++)
     {
@@ -116,79 +111,96 @@ void HCluster::CreateCluster()
     // sort votelist by decreasing order
     std::sort(voteList.begin(), voteList.end(), VoteCompare);
 
-    cout<<"CreatCuluter2"<<endl;
-
-    vector< vector<float> > tempDataSet;
+    vector<vector<float> > tempDataSet;
     for (int i = 0; i<rowLen; i++)
     {
         int id = voteList[i].id;
         tempDataSet.push_back(dataSet[id]);
     }
 
+
     int cur_clusterID = -1;
     vector<int> tempClusterList(rowLen, cur_clusterID);
-    vector<vector<float>> tempCentroidList;
-
-    cout<<"CreatCuluter3  rowLen="<<rowLen<<endl;
+    vector<vector<float> > tempCentroidList;
 
     for (int i = 0; i < rowLen; i++)
     {
-        //cout<<"i= "<<i<<endl;
         bool isFind = false;
         int findClusterID = -1;
         float dis = 9999999;
-        for (int j = 0; j < tempCentroidList.size() ; j++)
-        {
-            if (isSimilar(tempDataSet[i], tempCentroidList[j]))
-            {
+        for (int j = 0; j < tempCentroidList.size() ; j++) {
+            if (isSimilar(tempDataSet[i], tempCentroidList[j])) {
                 isFind = true;
                 float cur_dis = distEclud(tempDataSet[i], tempCentroidList[j]);
-                if (cur_dis < dis)
-                {
+                if(isnan(cur_dis)){
+                    isFind = false;
+                    continue;
+                }
+                if (cur_dis < dis) {
                     dis = cur_dis;
                     findClusterID = j;
                 }
-
             }
         }
-        if (isFind)
-        {
+        if (isFind) {
             tempClusterList[i] = findClusterID;
 
             int cnt = 0;
             vector<float> vec(colLen, 0);
 
             // TODO: 待优化 ↓↓↓↓↓ ↑
-            for (int id = 0; id < rowLen; id++)
-            {
-                if (tempClusterList[id] == findClusterID)
-                {
+            for (int id = 0; id < rowLen; id++) {
+                if (tempClusterList[id] == findClusterID) {
                     ++cnt;
-                    for (int col_id = 0; col_id < colLen; col_id++)
-                    {
+
+                    if(i==924){
+                        cout<< "id:" <<id <<" tempClusterList[id]:"<<tempClusterList[id]<<" findClusterID" <<findClusterID<<endl;
+                        cout<<"cnt="<<cnt<<" ";
+                        cout<< "vec" <<endl;
+                        for (int j = 0; j < colLen; ++j) {
+                            cout<<tempDataSet[id].at(j)<< " ";
+                        }
+                        cout<< endl;
+                    }
+
+                    for (int col_id = 0; col_id < colLen; col_id++) {
                         vec[col_id] += tempDataSet[id].at(col_id);
                     }
                 }
             }
-
-            //mean of the vector and update the centroids[findClusterID]
-            for (int col_id = 0; col_id < colLen; col_id++)
-            {
-                if (cnt != 0)	vec[col_id] /= cnt;
-                tempCentroidList[findClusterID].at(col_id) = vec[col_id];
+            if(i==924){
+                cout<< "********************" <<endl;
             }
+            //mean of the vector and update the centroids[findClusterID]
+            for (int col_id = 0; col_id < colLen; col_id++) {
 
+                if(i==924){
+                    cout<< "***********id***"<< col_id <<endl;
+                }
+
+                if(i==924){
+                    cout<< "vec" <<endl;
+                    for (int j = 0; j < colLen; ++j) {
+                        cout<< vec[j]<< " ";
+                    }
+                    cout<<endl;
+                }
+
+                if (cnt != 0)	vec[col_id] /= cnt;
+
+                tempCentroidList[findClusterID].at(col_id) = vec[col_id];
+
+                if(i==924){
+                    cout<< "col_id=" << col_id << "colLen:"<< colLen <<endl;
+                }
+            }
             // ↑↑↑↑↑
-
         }
-        else
-        {
+        else {
             cur_clusterID++;
             tempCentroidList.push_back(tempDataSet[i]);
             tempClusterList[i] = cur_clusterID;
-
         }
-
     }//for i
 
     cout<<"CreatCuluter4"<<endl;
@@ -206,14 +218,12 @@ void HCluster::CreateCluster()
     }
 
     classNumber = tempCentroidList.size();
+    cout<<"Centroid size:"<< classNumber <<endl;
     centroids.clear();
     for (int i = 0; i < classNumber; i++)
     {
         centroids.push_back(tempCentroidList[i]);
     }
-
-    cout<<"CreatCuluter5"<<endl;
-
 
     tempCentroidList.clear();
     tempClusterList.clear();
