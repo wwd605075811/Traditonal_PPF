@@ -1,6 +1,5 @@
 #ifndef PPF_HCLUSTER_H
 #define PPF_HCLUSTER_H
-
 #pragma once
 #include<iostream>
 #include<vector>
@@ -29,7 +28,7 @@ public:
 
 private:
     vector< vector<float> > dataSet;//the data set
-    vector< int > votingValueSet;//votingValueList
+    vector< int > votingValueSet;//votingValueList_
     int colLen, rowLen;//colLen:the dimension of vector;rowLen:the number of vectors
     int classNumber;
     vector< vector<float> > centroids;
@@ -39,7 +38,7 @@ private:
 
 public:
     void SetThresholds(float angle_thresh, float trans_thresh);
-    void CreateDataSet(vector< vector<float> >&  transformationDataSet, vector<int>&  votingValueList);
+    void CreateDataSet(vector< vector<float> >&  transformationDataSet, vector<int>&  votingValueList_);
     void CreateCluster();
     float distEclud(vector<float> &v1, vector<float> &v2);
     bool isSimilar(vector<float> &v1, vector<float> &v2);

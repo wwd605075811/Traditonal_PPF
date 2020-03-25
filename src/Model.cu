@@ -1,5 +1,5 @@
-#include "../include/model.h"
-#include "../include/newKernel.h"
+#include "../include/Model.h"
+#include "../include/Kernel.h"
 using namespace std;
 Model::Model() {}
 

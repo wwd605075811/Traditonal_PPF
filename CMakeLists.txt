@@ -22,6 +22,6 @@ link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
 cuda_add_executable (main src/main.cpp include/SurfaceMatching.h src/SurfaceMatching.cpp include/PPF.h src/PPF.cpp
-        include/HCluster.h src/HCluster.cpp src/model.cu include/model.h include/newKernel.h src/newKernel.cu
-        src/scene.cu include/scene.h)
+        include/HCluster.h src/HCluster.cpp src/Model.cu include/Model.h include/Kernel.h src/Kernel.cu
+        src/Scene.cu include/Scene.h)
 target_link_libraries (main ${PCL_LIBRARIES})

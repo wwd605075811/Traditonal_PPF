@@ -4,25 +4,9 @@
 #include <iostream>
 #include<fstream>
 #include<vector>
-
-#include <pcl/io/pcd_io.h>
 #include <pcl/point_cloud.h>
-#include <pcl/common/centroid.h>
 #include <pcl/point_types.h>
-#include <pcl/features/normal_3d.h>
-#include <pcl/kdtree/kdtree_flann.h>
 #include <pcl/surface/mls.h>
-#include <pcl/console/time.h>
-#include <boost/thread/thread.hpp>
-#include <pcl/common/common_headers.h>
-#include <pcl/console/parse.h>
-
-#include <pcl/ModelCoefficients.h>
-#include <pcl/sample_consensus/method_types.h>
-#include <pcl/sample_consensus/model_types.h>
-#include <pcl/segmentation/sac_segmentation.h>
-
-#include <pcl/io/ply_io.h>
 #include <math.h>
 #include <Eigen/Dense>
 #include <Eigen/Core>

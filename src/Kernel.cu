@@ -1,4 +1,4 @@
-#include "../include/newKernel.h"
+#include "../include/Kernel.h"
 //#include "../include/vector_ops.h"
 
 __host__ __device__ int4 discreteAngle(float4 ppf, float min_angle, float d_angle){
@@ -202,7 +202,6 @@ __device__ void transModelScene(float u, float v, unsigned int &alpha_idx) {
         alpha_m2s -= M_PI * 2;
 
     alpha_idx = (alpha_m2s - MIN_ANGLE)*D_ANGLE;
-    //alpha_idx = (alpha_m2s - ppfExtractor.Min_angle) / (ppfExtractor.Max_angle - ppfExtractor.Min_angle)*ppfExtractor.nAngle;
 }
 
 __device__ bool isFeatureSimilar(int4 scenePPF, int4 modelPPF, float dis_thresh, float angle_thresh) {

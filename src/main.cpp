@@ -1,22 +1,16 @@
+#include <fstream>
+#include <iostream>
 #include <string>
 #include <pcl/point_types.h>
-#include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/io/pcd_io.h>
-#include <pcl/common/point_operators.h>
-#include <pcl/common/io.h>
-#include <pcl/search/organized.h>
-#include <pcl/features/normal_3d_omp.h>
-#include <pcl/io/vtk_io.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/conditional_removal.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/segmentation/sac_segmentation.h>
-#include <pcl/registration/icp.h>
-#include <fstream>
-#include <iostream>
+
 #include "../include/SurfaceMatching.h"
-#include "../include/model.h"
+#include "../include/Model.h"
 using namespace std;
 using namespace pcl;
 
@@ -24,24 +18,13 @@ typedef pcl::PointNormal PointNT;   //using PointNT = pcl::PointNormal;
 typedef pcl::PointCloud<PointNT> PointCloudNT;
 typedef pcl::visualization::PointCloudColorHandlerCustom<PointNT> ColorHandlerT;
 
-struct resultWithScore
-{
-    PointCloudNT::Ptr resultCloud;
-    double score;
-    int id;
-};
-
-bool resultCompare(resultWithScore t1, resultWithScore t2){
-    return t1.score < t2.score;
-}
-
 int main (int argc, char *argv[])
 {
       ///The file to read from.
     string model_file_path = "../data/component.pcd";
-    string scene_file_path = "../dataTest/s3_4636.pcd"; //s1.pcd
+    string scene_file_path = "../dataTest/s.pcd"; //s1.pcd
 
-      ///The file to output to.
+    ///The file to output to.
     string outfile = "../dataTest/output.pcd";
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr scene(new pcl::PointCloud<pcl::PointXYZ>());
@@ -142,133 +125,27 @@ int main (int argc, char *argv[])
     cout << "scene_downsampled size:" << scene_downsampled->size() << endl;*/
 
 
-
     /// parameter
     int refPointDownsampleFactor = 1;
-    int sceneStep =5;
+    int sceneStep = 5;
     float tau_d = 0.05;
+    float clusterAngleThresh = 0.5;
+    float clusterDisThresh = 50;
 
     pcl::PointNormal minpt, maxpt;
     pcl::getMinMax3D(*model_downsampled, minpt, maxpt);
     float diameter = 0;
     diameter = max(fabs(maxpt.z - minpt.z), max(fabs(maxpt.x - minpt.x), fabs(maxpt.y - minpt.y)));
 
-    //calculate the model and the scene PPFs
-    //vote to select possible poses(without clustering)
+    ///train and match on GPU
     Model *model = new Model(model_downsampled.get(), scene_downsampled.get(), diameter * tau_d,
                              sceneStep,refPointDownsampleFactor);
-
-    cout << "training..." << endl;
-    SurfaceMatching match(model_downsampled);
-    cout<<"training is over!"<<endl;
-    match.setScene(scene_downsampled);
-    cout << "matching..." << endl;
-    match.newVoting(model);
-    cout<<"voting is over!"<<endl;
-
-    struct timeval timeEnd1, timeEnd2, timeEnd3, timeSystemStart;
-    double systemRunTime;
-    gettimeofday(&timeSystemStart, NULL);
-
-    match.CreateTranformtion_HCluster(0.2, 50);  // 参数待定
-
-    PointCloudNT::Ptr bestResult = match.getBestResult();
-
-    TransformWithProbVector transforms = match.getTransforms();
-    vector<resultWithScore> R;
-
-    int count = 0;
-    for (TransformWithProb &transform : transforms) {
-        cout << "probability: " << transform.prob << endl;
-        Eigen::Matrix4f transform_mat = transform.transform_mat;
-        cout << "before icp:" << endl;
-        cout << transform_mat << endl;
-        PointCloudNT::Ptr result_cloud(new PointCloudNT());
-        //just change the pos, didn't change the normal
-        pcl::transformPointCloud(*model_downsampled, *result_cloud, transform_mat);
-
-        PointCloudNT::Ptr input_cloud = result_cloud;
-
-        pcl::IterativeClosestPoint<PointNT, PointNT> icp;
-        icp.setInputSource(input_cloud);
-        icp.setInputTarget(scene_downsampled);
-        // Set the max correspondence distance to 5cm (e.g., correspondences with higher d;istances will be ignored)
-        icp.setMaxCorrespondenceDistance(8);
-        // Set the maximum number of iterations (criterion 1)
-        // icp.setMaximumIterations (50);
-        // Set the transformation epsilon (criterion 2)
-        // icp.setTransformationEpsilon (1e-8);
-        // Set the euclidean distance difference epsilon (criterion 3)
-        // icp.setEuclideanFitnessEpsilon (1);
-        // icp.setMaximumIterations(10000);
-        PointCloudNT Final;
-        icp.align(Final);
-        double score=icp.getFitnessScore(5);
-        cout<< "------------score:"<<score<<endl;
-        PointCloudNT::Ptr result_cloud_icp = Final.makeShared();
-        Eigen::Matrix4f transform_mat_icp = icp.getFinalTransformation();
-        Eigen::Matrix4f afterICP;
-        afterICP = transform_mat_icp * transform_mat;
-        cout<< "after icp:" <<endl<<afterICP<<endl;
-
-        resultWithScore r;
-        r.score = score;
-        r.resultCloud = result_cloud_icp;
-        r.id = count;
-        count ++;
-        if(count > 11){
-            break;
-        }
-        R.push_back(r);
-    }
-
-    //std::sort(R.begin(),R.end(),resultCompare);
-    for( int i=0; i<10; i++){
-        cout<< " id:" <<R[i].id <<" score:"<< R[i].score <<endl;
-    }
-
-    for (int i = 0; i < 10; ++i) {
-
-        pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer());
-        ColorHandlerT red(model_downsampled, 255, 0, 0);
-        viewer->addPointCloud<PointNT>(model_downsampled, red, "model_downsampled");
-        viewer->setPointCloudRenderingProperties(
-                pcl::visualization::PCL_VISUALIZER_POINT_SIZE,
-                5, "model_downsampled");
-        viewer->addPointCloudNormals<PointNT, PointNT>(
-                model_downsampled,
-                model_downsampled,
-                1, 1,
-                "model_downsampled_normals");
-
-        ColorHandlerT yellow(scene_downsampled, 255, 255, 0);
-        viewer->addPointCloud<PointNT>(scene_downsampled, yellow, "scene_downsampled");
-        viewer->setPointCloudRenderingProperties(
-                pcl::visualization::PCL_VISUALIZER_POINT_SIZE,
-                4, "scene_downsampled");
-        viewer->addPointCloudNormals<PointNT, PointNT>(
-                scene_downsampled,
-                scene_downsampled,
-                1, 1,
-                "scene_downsampled_normals");
-
-        // viewer->addPointCloud(result_cloud, red, "result_cloud");
-        // viewer->setPointCloudRenderingProperties(
-        //     pcl::visualization::PCL_VISUALIZER_POINT_SIZE,
-        //     4, "result_cloud");
-
-        ColorHandlerT green(R[i].resultCloud, 0, 255, 0);
-        viewer->addPointCloud<PointNT>(R[i].resultCloud, green, "result_cloud_icp");
-        viewer->setPointCloudRenderingProperties(
-                pcl::visualization::PCL_VISUALIZER_POINT_SIZE,
-                4, "result_cloud_icp");
-
-        while (!viewer->wasStopped()) {
-            viewer->spinOnce();
-        }
-        viewer->resetStoppedFlag();
-        viewer->close();
-    }
+    ///Deal voting result and Cluster
+    SurfaceMatching match(model_downsampled, scene_downsampled, sceneStep, model,
+                          clusterAngleThresh, clusterDisThresh);
+    ///ICP to Fine match with fitness score and Visualization
+    match.icpAndGetFitnessScore();
+    return 0;
 }
 
 

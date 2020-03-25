@@ -20,13 +20,13 @@ HCluster::~HCluster()
 {
 }
 
-void HCluster::CreateDataSet(vector< vector<float> >&  transformationDataSet, vector<int>&  votingValueList) //从内存加载
+void HCluster::CreateDataSet(vector< vector<float> >&  transformationDataSet, vector<int>&  votingValueList_) //从内存加载
 {
     //init dataSet
     for (int i = 0; i<transformationDataSet.size(); i++)
     {
         dataSet.push_back(transformationDataSet[i]);
-        votingValueSet.push_back(votingValueList[i]);
+        votingValueSet.push_back(votingValueList_[i]);
     }
 
     //init colLen,rowLen
@@ -144,7 +144,6 @@ void HCluster::CreateCluster()
         }
         if (isFind) {
             tempClusterList[i] = findClusterID;
-
             int cnt = 0;
             vector<float> vec(colLen, 0);
 
@@ -152,47 +151,15 @@ void HCluster::CreateCluster()
             for (int id = 0; id < rowLen; id++) {
                 if (tempClusterList[id] == findClusterID) {
                     ++cnt;
-
-                    if(i==924){
-                        cout<< "id:" <<id <<" tempClusterList[id]:"<<tempClusterList[id]<<" findClusterID" <<findClusterID<<endl;
-                        cout<<"cnt="<<cnt<<" ";
-                        cout<< "vec" <<endl;
-                        for (int j = 0; j < colLen; ++j) {
-                            cout<<tempDataSet[id].at(j)<< " ";
-                        }
-                        cout<< endl;
-                    }
-
                     for (int col_id = 0; col_id < colLen; col_id++) {
                         vec[col_id] += tempDataSet[id].at(col_id);
                     }
                 }
             }
-            if(i==924){
-                cout<< "********************" <<endl;
-            }
             //mean of the vector and update the centroids[findClusterID]
             for (int col_id = 0; col_id < colLen; col_id++) {
-
-                if(i==924){
-                    cout<< "***********id***"<< col_id <<endl;
-                }
-
-                if(i==924){
-                    cout<< "vec" <<endl;
-                    for (int j = 0; j < colLen; ++j) {
-                        cout<< vec[j]<< " ";
-                    }
-                    cout<<endl;
-                }
-
                 if (cnt != 0)	vec[col_id] /= cnt;
-
                 tempCentroidList[findClusterID].at(col_id) = vec[col_id];
-
-                if(i==924){
-                    cout<< "col_id=" << col_id << "colLen:"<< colLen <<endl;
-                }
             }
             // ↑↑↑↑↑
         }
@@ -202,9 +169,6 @@ void HCluster::CreateCluster()
             tempClusterList[i] = cur_clusterID;
         }
     }//for i
-
-    cout<<"CreatCuluter4"<<endl;
-
 
     clusterLabels.clear();
     for (int i = 0; i < rowLen; i++)

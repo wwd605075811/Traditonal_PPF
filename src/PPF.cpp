@@ -149,7 +149,7 @@ float  PPF::CreateAngle2TouchXZPostivePlane(pcl::PointNormal  pn,  pcl::PointNor
 {
     Matrix4f  transform_mat = CreateTransformation2AlignNormWithX(pn);
     Vector4f  pt(pn2.x, pn2.y, pn2.z,1.0);
-    Vector4f  trans_pt = transform_mat*pt;
+    Vector4f  trans_pt = transform_mat * pt;
 
     float  x = trans_pt[0];
     float  y = trans_pt[1];

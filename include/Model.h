@@ -6,7 +6,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
-#include "scene.h"
+#include "Scene.h"
 //Algorithm library
 #include <thrust/inner_product.h>
 #include <thrust/binary_search.h>

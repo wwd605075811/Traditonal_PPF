@@ -1,5 +1,5 @@
-#include "../include/scene.h"
-#include "../include/newKernel.h"
+#include "../include/Scene.h"
+#include "../include/Kernel.h"
 
 using namespace std;
 Scene::Scene(){}

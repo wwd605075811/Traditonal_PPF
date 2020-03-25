@@ -14,11 +14,13 @@ int sceneStep =5;
 //对于空间距离的缩小率？(没整清楚)
 float tau_d = 0.05; 
 //聚类时判定是否可以划分为一个类时的标准,即angle和dis小于某个设定阈值
-CreateTranformtion_HCluster(float angle_thresh=0.2, float dis_thresh=0.5);
+CreateTranformtionHCluster(float clusterAngleThresh=0.2, float dis_thresh=0.5);
 //设置icp迭代时最多可移动距离, 初次在结果周围选择 其平方范围内的点(具体在库里)
 icp.setMaxCorrespondenceDistance(8);
-//计算评分
-double score=icp.getFitnessScore(5);
+//根据最终pose的周围点确定scene中真实对象的点云
+float radius = 8.0;
+//对于当前识别出来的真实对象，判断其3.5距离内有没有end pose,用来计算score
+float max_range = 3.5; (应该小于 radius)
 ```
 
 ​	

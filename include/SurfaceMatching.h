@@ -3,82 +3,68 @@
 #include <iostream>
 #include<fstream>
 #include<vector>
-
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_cloud.h>
-#include <pcl/common/centroid.h>
-#include <pcl/point_types.h>
-#include <pcl/features/normal_3d.h>
-#include <pcl/kdtree/kdtree_flann.h>
-#include <pcl/surface/mls.h>
-#include <pcl/console/time.h>
-#include <boost/thread/thread.hpp>
-#include <pcl/common/common_headers.h>
-#include <pcl/common/transforms.h>
-#include <pcl/console/parse.h>
-
-#include <pcl/ModelCoefficients.h>
-#include <pcl/sample_consensus/method_types.h>
-#include <pcl/sample_consensus/model_types.h>
-#include <pcl/segmentation/sac_segmentation.h>
-
-#include <pcl/filters/voxel_grid.h>
-
+#include <pcl/registration/icp.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/visualization/pcl_visualizer.h>
+#include <Eigen/StdVector>
 #include "PPF.h"
 #include "HCluster.h"
-#include "../include/model.h"
-
-#include <Eigen/StdVector>
-
+#include "Model.h"
+typedef pcl::PointNormal PointNT;
+typedef pcl::PointCloud<PointNT> PointCloudNT;
+typedef pcl::visualization::PointCloudColorHandlerCustom<PointNT> ColorHandlerT;
 using namespace std;
-
-struct TransformWithProb
-{
+struct TransformWithProb {
     Eigen::Matrix4f transform_mat;
     float prob;
 };
 
-
+struct ResultWithScore {
+    PointCloudNT::Ptr resultCloud;
+    PointCloudNT::Ptr realScene;
+    PointCloudNT::Ptr alignedPointFromSceneToModel;
+    float score;
+    int id;
+};
 // to avoid misalignment problem, otherwise the program may crash,
 // see https://eigen.tuxfamily.org/dox/group__TopicStlContainers.html for more details
 typedef std::vector<TransformWithProb, Eigen::aligned_allocator<TransformWithProb>> TransformWithProbVector;
 
-class SurfaceMatching
-{
-
+class SurfaceMatching {
 public:
-    pcl::PointCloud<pcl::PointNormal>::Ptr m_modelWithNormals;
-    pcl::PointCloud<pcl::PointNormal>::Ptr m_sceneWithNormals;
+    ///Public Types
+    //the model and scene point cloud
+    pcl::PointCloud<pcl::PointNormal>::Ptr m_modelWithNormals_;
+    pcl::PointCloud<pcl::PointNormal>::Ptr m_sceneWithNormals_;
+    //0->plant point 1->表示前景物体 2->reference point
+    vector<int> sceneLabelList_;
+    //the step of picking the reference in scene point cloud
+    int sceneStep_;
 
-    pcl::PointCloud<pcl::PointNormal>::Ptr sceneWithNormal;
-    vector<int> sceneLabelList; //0-背景点，如平面，1-表示前景物体,2-表示参考点
-    void  setScene(pcl::PointCloud<pcl::PointNormal>::Ptr sceneWithNormals);
-
-    void newVoting(Model *model);
-    void CreateTranformtion_HCluster(float angle_thresh, float dis_thresh); //层次聚类
-
-    pcl::PointCloud<pcl::PointNormal>::Ptr getBestResult();
+    ///Public Member Functions
+    SurfaceMatching(pcl::PointCloud<pcl::PointNormal>::Ptr modelWithNormals,
+            pcl::PointCloud<pcl::PointNormal>::Ptr sceneWithNormals,
+            int step, Model *model,float clusterAngleThresh, float clusterDisThresh);
+    ~SurfaceMatching();
+    void pickReferencePoints();
+    //put the voting result into vector for the cluster
+    void dealVoteResult(Model *model);
+    void setScene(pcl::PointCloud<pcl::PointNormal>::Ptr sceneWithNormals, int step);
+    //Hierarchical clustering
+    void createTranformtionHCluster(float angle_thresh, float dis_thresh);
+    void icpAndGetFitnessScore();
+    ///Get Function
     Eigen::Matrix4f getBestTransform();
     TransformWithProbVector getTransforms();
+    pcl::PointCloud<pcl::PointNormal>::Ptr getBestResult();
 
-    SurfaceMatching(pcl::PointCloud<pcl::PointNormal>::Ptr modelWithNormals);
-    ~SurfaceMatching();
-private:
-    int hashTableSize;
-    float tau_d;
-    int  N_angle;
-    PPF  ppfExtractor;
+protected:
 
-    void pickReferencePoints();
-
+    PPF ppfExtractor_;
     const int BEST_TRANS_ID = 0;
+    TransformWithProbVector transformMatList_;
+    vector<int> votingValueList_;
+    vector< vector<float> > transformdataSet_;
 
-    TransformWithProbVector  transformMatList;
-
-    vector<int>  votingValueList;
-    vector< vector<float> > transformdataSet;
 };
-
-
-
 #endif //SURFACE_MATCHING_h
