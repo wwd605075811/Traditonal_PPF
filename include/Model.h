@@ -1,6 +1,7 @@
 #ifndef __MODEL_H
 #define __MODEL_H
 #include <iostream>
+#include <vector>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <thrust/device_vector.h>
@@ -10,15 +11,21 @@
 //Algorithm library
 #include <thrust/inner_product.h>
 #include <thrust/binary_search.h>
+struct VoteResult {
+    int mPoint;
+    int mNumber;
+    int mAngle;
+    int sPoint;
+};
+
 class Model {
 
 public:
-
     Model();
     // every point in model will to be calculated the ppfs, so the refPointDownsampleFactor is 1.
     //It just like the down sample step.
     Model(pcl::PointCloud<pcl::PointNormal> *cloud_ptr, pcl::PointCloud<pcl::PointNormal> *sceneCloud_ptr,
-            float d_dist, int sceneStep, unsigned int refPointDownsampleFactor=1);
+          float d_dist, int sceneStep, unsigned int refPointDownsampleFactor = 1);
     ~Model();
     int numPoints();
     thrust::device_vector<float3> *getModelPoints();
@@ -28,12 +35,19 @@ public:
 
     pcl::PointCloud<pcl::PointNormal> *cloud_ptr;
 
-    ///Result:each reference points in scene could find theirs mPoint, votes and angle.
+    //Result:each reference points in scene could find theirs mPoint, votes and angle.
+    //todo: use the get function
+    int *sPoint;
     int *mPoint;
     int *mNumber;
     int *mAngle;
-protected:
+    int *secondmPoint;
+    int *secondmNumber;
+    int *secondmAngle;
+    //the number of reference point
+    int refNum;
 
+private:
     // Number of PPF in the mode. I.e., number of elements in each of
     // the following arrays;
     unsigned long n;
@@ -68,8 +82,8 @@ protected:
     // nonunique_hashkeys[i] == hash(data[hashkeyToDataMap[i]])
     thrust::device_vector<std::size_t> hashkeyToDataMap;
 
-    // *unique* hashkeys.
-    thrust::device_vector<unsigned int> hashkeys;
+    // *unique* hashUniqueKeys.
+    thrust::device_vector<unsigned int> hashUniqueKeys;
     // number of occurances of each hashkey
     thrust::device_vector<std::size_t> counts;
     // Indices in hashkeyToDataMap where blocks of identical hashkeys begin.
@@ -82,8 +96,8 @@ protected:
 
     void initHash(thrust::device_vector<unsigned int>& data);
 
-    void ComputeUniqueVotes(Scene *scene);
-
+    void voteAndResult(Scene *scene);
+    void selectResult();
     thrust::device_vector<unsigned int> getIndices(thrust::device_vector<unsigned int>&data_hashkeys);
 };
 #endif /* __MODEL_H */

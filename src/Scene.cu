@@ -5,12 +5,16 @@ using namespace std;
 Scene::Scene(){}
 
 Scene::Scene(pcl::PointCloud<pcl::PointNormal> *cloud_ptr, float d_dist,
-             unsigned int refPointDownsampleFactor){
+             unsigned int refPointDownsampleFactor) {
+    /*
+    *计算Scene PPF 和 Hash
+    */
     this->cloud_ptr =cloud_ptr;
     this->d_dist = d_dist;
     this->sceneStep = refPointDownsampleFactor;
-    cout<<"scene:d_dist:"<<this->d_dist <<endl;
-    cout<<"scene:reference step:"<<this->sceneStep<<endl;
+    cout<<"GPU::scene point size:"<<this->cloud_ptr->size()<<endl;
+    cout<<"GPU::scene d_dist:"<<this->d_dist <<endl;
+    cout<<"GPU::scene reference step:"<<this->sceneStep<<endl;
     thrust::host_vector<float3> *points =
             new thrust::host_vector<float3>(cloud_ptr->size());
     thrust::host_vector<float3> *normals =
@@ -30,7 +34,7 @@ Scene::Scene(pcl::PointCloud<pcl::PointNormal> *cloud_ptr, float d_dist,
 
     this->initPPFs(points, normals, cloud_ptr->size(), d_dist,
                    refPointDownsampleFactor);
-    cout<< "scenePPF size: " <<scenePPFs->size()<<endl;
+    cout<< "GPU::scenePPF size: " <<scenePPFs->size()<<endl;
 
     HANDLE_ERROR(cudaGetLastError());
     HANDLE_ERROR(cudaDeviceSynchronize());
@@ -38,7 +42,8 @@ Scene::Scene(pcl::PointCloud<pcl::PointNormal> *cloud_ptr, float d_dist,
 
     int blocks = std::min(((int)(this->scenePPFs->size()) + BLOCK_SIZE - 1) / BLOCK_SIZE, MAX_NBLOCKS);
 
-    ppf_hash_kernel<<<blocks,BLOCK_SIZE>>>(RAW_PTR(this->scenePPFs),
+    ppf_hash_kernel<<<blocks,BLOCK_SIZE>>>
+            (RAW_PTR(this->scenePPFs),
             RAW_PTR(this->scenehashKeys),
             this->scenePPFs->size());
 }
@@ -47,7 +52,8 @@ Scene::~Scene() {
     delete this->scenePoints;
     delete this->sceneNormals;
     delete this->scenePPFs;
-    // delete this->hashKeys;
+    delete this->sceneAngles;
+    delete this->scenehashKeys;
 }
 
 void Scene::initPPFs(thrust::host_vector<float3> *points, thrust::host_vector<float3> *normals, int n,
@@ -66,16 +72,14 @@ void Scene::initPPFs(thrust::host_vector<float3> *points, thrust::host_vector<fl
     // hashing is done by ppf_hash_kernel, called only for model, not scene (model.cu:46)
     ppfKernel<<<blocks,BLOCK_SIZE>>>
                        (RAW_PTR(this->scenePoints),
-                               RAW_PTR(this->sceneNormals),
-                               RAW_PTR(this->scenePPFs),
-                               n, refPointDownsampleFactor, this->d_dist);
-
+                        RAW_PTR(this->sceneNormals),
+                        RAW_PTR(this->scenePPFs),
+                        n, refPointDownsampleFactor, this->d_dist);
     ppfAngle<<<blocks,BLOCK_SIZE>>>
                        (RAW_PTR(this->scenePoints),
-                               RAW_PTR(this->sceneNormals),
-                               RAW_PTR(this->sceneAngles),
-                               n, refPointDownsampleFactor, this->d_dist);
-
+                        RAW_PTR(this->sceneNormals),
+                        RAW_PTR(this->sceneAngles),
+                        n, refPointDownsampleFactor, this->d_dist);
 }
 
 int Scene::numPoints(){

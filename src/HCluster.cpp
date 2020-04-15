@@ -1,30 +1,23 @@
 #include "../include/HCluster.h"
 
-struct Vote
-{
+struct Vote {
     int id;
     int value;
 };
 
-bool VoteCompare(Vote v1, Vote v2)
-{
+bool VoteCompare(Vote v1, Vote v2) {
     return v1.value > v2.value;
 }
 
-HCluster::HCluster()
-{
+HCluster::HCluster() {
 }
 
-
-HCluster::~HCluster()
-{
+HCluster::~HCluster() {
 }
 
-void HCluster::CreateDataSet(vector< vector<float> >&  transformationDataSet, vector<int>&  votingValueList_) //从内存加载
-{
+void HCluster::CreateDataSet(vector< vector<float> >&  transformationDataSet, vector<int>&  votingValueList_) {//从内存加载
     //init dataSet
-    for (int i = 0; i<transformationDataSet.size(); i++)
-    {
+    for(int i = 0; i<transformationDataSet.size(); i++) {
         dataSet.push_back(transformationDataSet[i]);
         votingValueSet.push_back(votingValueList_[i]);
     }
@@ -32,24 +25,23 @@ void HCluster::CreateDataSet(vector< vector<float> >&  transformationDataSet, ve
     //init colLen,rowLen
     colLen = 0;
     rowLen = 0;
-    if (dataSet.size() > 0)
-    {
-        colLen = dataSet[0].size();  //the size is 7, which contains one quaternion and one Trans_Mat.
-        rowLen = dataSet.size();  //I think this size is means that the reference points' size.
+    if (dataSet.size() > 0) {
+        colLen = dataSet[0].size();  //quaternions + Trans_Mat =7.
+        rowLen = dataSet.size();  //poses'size
         cout<< "In the CreateDataSet. colLen:" <<colLen <<" rowLen:" <<rowLen <<endl;
     }
 }
 
-void HCluster::SetThresholds(float angle_thresh, float trans_thresh)
-{
+void HCluster::SetThresholds(float angle_thresh, float trans_thresh) {
     this->angle_thresh = angle_thresh;
     this->trans_thresh = trans_thresh;
 }
 
-bool HCluster::isSimilar(vector<float> &v1, vector<float> &v2)
-{
+bool HCluster::isSimilar(vector<float> &v1, vector<float> &v2) {
     Vector4f angle1(v1[0], v1[1], v1[2], v1[3]);
     Vector4f angle2(v2[0], v2[1], v2[2], v2[3]);
+
+
     if ((angle1 - angle2).norm() > angle_thresh)
         return false;
 
@@ -61,8 +53,7 @@ bool HCluster::isSimilar(vector<float> &v1, vector<float> &v2)
     return true;
 }
 
-void HCluster::print()
-{
+void HCluster::print() {
     ofstream fout;
     fout.open("res.txt");
     if (!fout)
@@ -87,8 +78,7 @@ void HCluster::print()
     }
 }
 
-float HCluster::distEclud(vector<float> &v1, vector<float> &v2)
-{
+float HCluster::distEclud(vector<float> &v1, vector<float> &v2) {
     float sum = 0;
     int size = v1.size();
     for (int i = 0; i<size; i++)
@@ -98,11 +88,9 @@ float HCluster::distEclud(vector<float> &v1, vector<float> &v2)
     return sum;
 }
 
-void HCluster::CreateCluster()
-{
+void HCluster::CreateCluster() {
     vector<Vote> voteList;
-    for (int i = 0; i < rowLen; i++)
-    {
+    for (int i = 0; i < rowLen; i++) {
         Vote tempVote;
         tempVote.id = i;
         tempVote.value = votingValueSet[i];
@@ -112,31 +100,29 @@ void HCluster::CreateCluster()
     std::sort(voteList.begin(), voteList.end(), VoteCompare);
 
     vector<vector<float> > tempDataSet;
-    for (int i = 0; i<rowLen; i++)
-    {
+    for (int i = 0; i<rowLen; i++) {
         int id = voteList[i].id;
         tempDataSet.push_back(dataSet[id]);
     }
 
-
     int cur_clusterID = -1;
+    //
     vector<int> tempClusterList(rowLen, cur_clusterID);
     vector<vector<float> > tempCentroidList;
 
-    for (int i = 0; i < rowLen; i++)
-    {
+    for (int i = 0; i < rowLen; i++) { //for the each pose
         bool isFind = false;
         int findClusterID = -1;
         float dis = 9999999;
-        for (int j = 0; j < tempCentroidList.size() ; j++) {
+        for (int j = 0; j < tempCentroidList.size() ; j++) {//for the each cluster
             if (isSimilar(tempDataSet[i], tempCentroidList[j])) {
                 isFind = true;
                 float cur_dis = distEclud(tempDataSet[i], tempCentroidList[j]);
-                if(isnan(cur_dis)){
+                if(isnan(cur_dis)) { //this nan is come from the scene point normal
                     isFind = false;
                     continue;
                 }
-                if (cur_dis < dis) {
+                if(cur_dis < dis) { //one pose just go into one cluster
                     dis = cur_dis;
                     findClusterID = j;
                 }
@@ -171,21 +157,23 @@ void HCluster::CreateCluster()
     }//for i
 
     clusterLabels.clear();
-    for (int i = 0; i < rowLen; i++)
-    {
+    for (int i = 0; i < rowLen; i++) {
         clusterLabels.push_back(-1);
     }
-    for (int i = 0; i < rowLen; i++)
-    {
+    for (int i = 0; i < rowLen; i++) {
         int id = voteList[i].id;
         clusterLabels[id]=(tempClusterList[i]);
     }
 
     classNumber = tempCentroidList.size();
+    ///note:
+    if( classNumber == 0 ) {
+        cerr<< "the most possible reason is there aren't normals in pointCloud!" <<endl;
+    }
+
     cout<<"Centroid size:"<< classNumber <<endl;
     centroids.clear();
-    for (int i = 0; i < classNumber; i++)
-    {
+    for (int i = 0; i < classNumber; i++) {
         centroids.push_back(tempCentroidList[i]);
     }
 
@@ -197,18 +185,15 @@ void HCluster::CreateCluster()
     print();
 }
 
-void HCluster::GetCentroidsAndClusterLabels(vector< vector<float> >&  centroidList, vector< int >& clusterLabelList)
-{
+void HCluster::GetCentroidsAndClusterLabels(vector< vector<float> >&  centroidList, vector< int >& clusterLabelList) {
     centroidList.clear();
     clusterLabelList.clear();
 
-    for (int i = 0; i<centroids.size(); i++)
-    {
+    for (int i = 0; i<centroids.size(); i++) {
         centroidList.push_back(centroids[i]);
     }
 
-    for (int i = 0; i<clusterLabels.size(); i++)
-    {
+    for (int i = 0; i<clusterLabels.size(); i++) {
         int clusterNo = clusterLabels[i];
         clusterLabelList.push_back(clusterNo);
     }

@@ -48,8 +48,7 @@ void PPF::Set(float d_distance, int nAngle,  int max_nDistance, int max_hashInde
 
 }
 
-PPF::~PPF()
-{
+PPF::~PPF() {
 }
 
 int PPF::CreateFeatureHashIndex(pcl::PointNormal  pn1, pcl::PointNormal  pn2)

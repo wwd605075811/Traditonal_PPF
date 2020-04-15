@@ -29,7 +29,7 @@ public:
 
     pcl::PointCloud<pcl::PointNormal> *cloud_ptr;
 
-protected:
+private:
 
     // Number of PPF in the mode. I.e., number of elements in each of
     // the following arrays;

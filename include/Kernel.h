@@ -26,6 +26,8 @@
 #define D_ANGLE (N_ANGLE / TWOPI)
 #define P1 (N_ANGLE * N_ANGLE * MAX_NDISTANCE)   //P3 = N_ANGLE  P4 = 1
 #define P2 (N_ANGLE * N_ANGLE)
+#define P3 (N_ANGLE)
+#define P4 1
 #define D_ANGLE0 ((2.0f*float(CUDART_PI_F))/float(N_ANGLE))
 //CUDA macros
 #define RAW_PTR(V) thrust::raw_pointer_cast(V->data())
@@ -38,12 +40,11 @@ static void HandleError(cudaError_t err, const char *file, int line){
     }
 }
 
-__host__ __device__ int4 discreteAngle(float4 ppf, float min_angle, float d_angle);
+__host__ __device__ int4 discreteDisAndAngle(float4 ppf, float min_angle, float d_angle);
 
 __host__ __device__ float4 computePPF(float3 p1, float3 n1, float3 p2, float3 n2, float d_dist);
 
 __host__ __device__ unsigned int hash(int4 ppf);
-
 
 __host__ __device__ __forceinline__ void zeroMat4(float T[4][4]);
 
@@ -59,13 +60,13 @@ __host__ __device__ float4 homogenize(float3 v);
 
 __host__ __device__ float3 dehomogenize(float4 v);
 
-__host__ __device__ float4 mat4f_vmul(const float A[4][4], const float4 b);
+__host__ __device__ float4 mat4fVmul(const float A[4][4], const float4 b);
 
-__host__ __device__ void mat4f_mul(const float A[4][4], const float B[4][4], float C[4][4]);
+__host__ __device__ void mat4fMul(const float A[4][4], const float B[4][4], float C[4][4]);
 
-__host__ __device__ float quant_downf(float x, float y);
+__host__ __device__ float quantDownf(float x, float y);
 
-__device__ void trans_model_scene(float3 m_r, float3 n_r_m, float3 m_i,
+__device__ void transModelAndScene(float3 m_r, float3 n_r_m, float3 m_i,
                                   float3 s_r, float3 n_r_s, float3 s_i,
                                   float d_dist, unsigned int &alpha_idx);
 
@@ -94,8 +95,8 @@ __global__ void ppf_vote_kernel(unsigned int *sceneKeys, unsigned int *sceneIndi
                                 int *voteAccumSpace, int4 *modelPPFs, int4 *scenePPFs,
                                 float *modelAngles, float *sceneAngles, int count, float d_dist);
 
-__global__ void addVote(int *d_accumSpace, int *d_votingPoint, int *d_votingNumber, int *d_votingAngle, int modelSize, int sceneSize);
-
+__global__ void addVote(int *d_accumSpace, int *d_votingPoint, int *d_votingNumber, int *d_votingAngle,
+                        int modelSize, int sceneSize, int *secondPoint, int *secondNumber, int *secondAngle);
 __host__ __device__ float dot(float3 v1, float3 v2);
 
 __host__ __device__ float dot(float4 v1, float4 v2);
