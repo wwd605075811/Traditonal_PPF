@@ -7,18 +7,16 @@
 #include <thrust/host_vector.h>
 //Algorithm library
 #include <thrust/inner_product.h>
+using namespace std;
 
 class Scene {
 
 public:
-
     Scene();
-    /*Model(pcl::PointCloud<pcl::PointNormal> *cloud_ptr, float d_dist,
-          unsigned int refPointDownsampleFactor=1);*/
     Scene(pcl::PointCloud<pcl::PointNormal> *cloud_ptr, float d_dist,
           unsigned int refPointDownsampleFactor=1);
-
     ~Scene();
+
     int numPoints();
     int getSceneStep();
     thrust::device_vector<float3> *getScenePoints();
@@ -30,11 +28,11 @@ public:
     pcl::PointCloud<pcl::PointNormal> *cloud_ptr;
 
 private:
-
     // Number of PPF in the mode. I.e., number of elements in each of
     // the following arrays;
     unsigned long n;
 
+    //场景点采样步长
     int sceneStep;
 
     // Vector of model points
@@ -58,8 +56,5 @@ private:
 
     void initPPFs(thrust::host_vector<float3> *points, thrust::host_vector<float3> *normals, int n,
                   float d_dist, unsigned int refPointDownsampleFactor);
-
 };
-
-
 #endif /* __SCENE_H */

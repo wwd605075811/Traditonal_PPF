@@ -154,16 +154,13 @@ float  PPF::CreateAngle2TouchXZPostivePlane(pcl::PointNormal  pn,  pcl::PointNor
     float  y = trans_pt[1];
     float  z = trans_pt[2];
 
-
     float rot_angle = atan2(y, z);
     alpha = rot_angle;
 
     return  rot_angle;
-
-
 }
 
-Eigen::Matrix4f   PPF::CreateTransformationFromModelToScene(pcl::PointNormal  pm, pcl::PointNormal  ps, float alpha)
+Eigen::Matrix4f PPF::CreateTransformationFromModelToScene(pcl::PointNormal  pm, pcl::PointNormal  ps, float alpha)
 {
     Matrix4f  Tmg = CreateTransformation2AlignNormWithX(pm);
     Matrix4f  Tsg = CreateTransformation2AlignNormWithX(ps);
@@ -172,21 +169,18 @@ Eigen::Matrix4f   PPF::CreateTransformationFromModelToScene(pcl::PointNormal  pm
     return  trans_mat;
 }
 
-bool PPF::isRotationMatrix(Eigen::Matrix3f   R)
-{
+bool PPF::isRotationMatrix(Eigen::Matrix3f R) {
     Eigen::Matrix3f Rt;
     Rt = R.transpose();
-    Eigen::Matrix3f  shouldBeIdentity = Rt * R;
-    Eigen::Matrix3f  I = Matrix3f::Identity();
+    Eigen::Matrix3f shouldBeIdentity = Rt * R;
+    Eigen::Matrix3f I = Matrix3f::Identity();
 
     Eigen::Matrix3f difMat = I - Rt;
     return difMat.norm()< 1e-6;
-
 }
 
-Eigen::Vector3f PPF::RotationMat2EulerAngles(Eigen::Matrix3f R)
-{
-    assert(isRotationMatrix(R));
+Eigen::Vector3f PPF::RotationMat2EulerAngles(Eigen::Matrix3f R) {
+    assert(!isRotationMatrix(R));
     float sy = sqrt(R(0, 0) * R(0, 0) + R(1, 0) * R(1, 0));
     bool singular = sy < 1e-6; // If
     float x, y, z;
@@ -202,11 +196,9 @@ Eigen::Vector3f PPF::RotationMat2EulerAngles(Eigen::Matrix3f R)
         z = 0;
     }
     return  Eigen::Vector3f(x, y, z);
-
 }
 
-Vector4f   PPF::RotationMatrixToQuaternion(Matrix3f  rotationMat)
-{
+Vector4f PPF::RotationMatrixToQuaternion(Matrix3f rotationMat) {
     //cout << rotationMat << endl << endl;
     //RotationMatrix to EulerAngles
     Eigen::Vector3f ea1 = rotationMat.eulerAngles(2, 1, 0);
@@ -223,7 +215,6 @@ Vector4f   PPF::RotationMatrixToQuaternion(Matrix3f  rotationMat)
     Eigen::Quaternionf q;
     q = R;
 
-
     Vector4f quaterniondVec;
     quaterniondVec[0] = q.x();
     quaterniondVec[1] = q.y();
@@ -231,14 +222,12 @@ Vector4f   PPF::RotationMatrixToQuaternion(Matrix3f  rotationMat)
     quaterniondVec[3] = q.w();
 
     return  quaterniondVec;
-
 }
 
-Matrix4f   PPF::RotationAndTranslation2Transformation(Matrix3f  rotationMat, Vector3f  translationVec)
-{
-    Matrix3f  rot_mat = rotationMat;
+Matrix4f PPF::RotationAndTranslation2Transformation(Matrix3f rotationMat, Vector3f  translationVec) {
+    Matrix3f rot_mat = rotationMat;
 
-    Matrix4f    trans_mat;
+    Matrix4f trans_mat;
     trans_mat.setIdentity();
     for (int i = 0; i<3; i++)
         for (int j = 0; j < 3; j++)
@@ -250,12 +239,9 @@ Matrix4f   PPF::RotationAndTranslation2Transformation(Matrix3f  rotationMat, Vec
     trans_mat(2, 3) = translationVec[2];
 
     return  trans_mat;
-
-
 }
 
-Matrix3f  PPF::QuaternionToRotationMatrix(Vector4f  quaterniondVec)
-{
+Matrix3f PPF::QuaternionToRotationMatrix(Vector4f quaterniondVec) {
     Quaternionf q;
     q.x() = quaterniondVec[0];
     q.y() = quaterniondVec[1];
@@ -263,14 +249,12 @@ Matrix3f  PPF::QuaternionToRotationMatrix(Vector4f  quaterniondVec)
     q.w() = quaterniondVec[3];
 
     return q.toRotationMatrix();
-
 }
 
-Matrix4f   PPF::EulerAnglesAndTranslation2Transformation(Vector3f  EulerAngles, Vector3f  translationVec)
+Matrix4f PPF::EulerAnglesAndTranslation2Transformation(Vector3f  EulerAngles, Vector3f  translationVec)
 {
-    Matrix3f  rot_mat = EulerAnglesToRotationMatrix(EulerAngles);
-
-    Matrix4f    trans_mat;
+    Matrix3f rot_mat = EulerAnglesToRotationMatrix(EulerAngles);
+    Matrix4f trans_mat;
     trans_mat.setIdentity();
     for( int i=0;i<3;i++)
         for (int j = 0; j < 3; j++)
@@ -287,9 +271,8 @@ Matrix4f   PPF::EulerAnglesAndTranslation2Transformation(Vector3f  EulerAngles, 
 
 Matrix3f  PPF::EulerAnglesToRotationMatrix(Vector3f  EulerAngles)
 {
-    Vector3f  theta = EulerAngles;
+    Vector3f theta = EulerAngles;
     // 计算旋转矩阵的X分量
-
     Matrix3f R_x;
     R_x<<
        1, 0, 0,
@@ -314,5 +297,4 @@ Matrix3f  PPF::EulerAnglesToRotationMatrix(Vector3f  EulerAngles)
     Matrix3f R = R_z * R_y * R_x;
 
     return R;
-
 }

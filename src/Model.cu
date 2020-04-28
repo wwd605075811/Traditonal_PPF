@@ -79,7 +79,6 @@ void Model::initPPFs(thrust::host_vector<float3> *points, thrust::host_vector<fl
                                RAW_PTR(this->modelNormals),
                                RAW_PTR(this->modelAngles),
                                n, refPointDownsampleFactor, this->d_dist);
-
 }
 
 template <typename Vector1, typename Vector2, typename Vector3>

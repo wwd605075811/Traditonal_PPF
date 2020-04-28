@@ -1,7 +1,5 @@
 #include "../include/Scene.h"
 #include "../include/Kernel.h"
-
-using namespace std;
 Scene::Scene(){}
 
 Scene::Scene(pcl::PointCloud<pcl::PointNormal> *cloud_ptr, float d_dist,

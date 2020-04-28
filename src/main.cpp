@@ -2,14 +2,7 @@
 #include <iostream>
 #include <string>
 #include <pcl/point_types.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/io/ply_io.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/conditional_removal.h>
-#include <pcl/filters/extract_indices.h>
-#include <pcl/ModelCoefficients.h>
-#include <pcl/segmentation/sac_segmentation.h>
-#include <pcl/features/normal_3d_omp.h>
+
 #include "../include/PPFMatch.h"
 #include "../include/PointCloudPretreatment.h"
 using namespace std;
@@ -22,9 +15,8 @@ typedef pcl::visualization::PointCloudColorHandlerCustom<PointNT> ColorHandlerT;
 int main (int argc, char *argv[]) {
     string scene_file_path;
     string model_file_path;
-    string outFile = "../model/newmodel.pcd";
-    float clusterAngleThresh = 0.5;
-    float clusterDisThresh = 8;
+    string outFile = "../modelScene/scene/ceBar.pcd";
+
 
     if (argc == 5) {
         cout<< "CLA!" <<endl;
@@ -35,21 +27,24 @@ int main (int argc, char *argv[]) {
     } else {
         cout<< "read from file"<<endl;
         ///The file to read from.
-        model_file_path = "../modelScene/component.pcd";
-        //scene_file_path = "../dataTest/ruben/2_without_outliers.ply";
-        scene_file_path = "../modelScene/scene/box.ply";
+        model_file_path = "../data/component.pcd";
+        scene_file_path = "../dataTest/qianyi/test1/cloudWithFilter4.ply";
+
+        //model_file_path = "../sonor2018/1model/model1.pcd";
+        //scene_file_path = "../sonor2018/1scene/Scene1.pcd";
     }
 
-    PointCloudPretreatment preprocess(model_file_path, 2.0, scene_file_path, 5.0, 5.0, 2.0);
-
+    PointCloudPretreatment preprocess(model_file_path, 2.0, scene_file_path, 5, 3.0, 2.0);
     /// PPF parameter
+    float clusterAngleThresh = 0.5;
+    float clusterDisThresh = 8;
     int modelStep = 1;
     int sceneStep = 5;
     float tau_d = 0.05;
-    int resultNumber = 5;
-    float icpMaxCorrespondenceDistance = 5;
-    float scoreSearchRadius = 6;
-    float scoreThresh = 3;
+    int resultNumber = 8;
+    float icpMaxCorrespondenceDistance = 1.5;
+    float scoreSearchRadius = 4;
+    float scoreThresh = 2;
 
     PPFMatch ma(preprocess.modelDownsampled_, tau_d, modelStep);
     TransformWithProbVector matrixAndScoreList_ =
@@ -60,5 +55,3 @@ int main (int argc, char *argv[]) {
 
     return 0;
 }
-
-

@@ -1,5 +1,4 @@
 #include "../include/Kernel.h"
-//#include "../include/vector_ops.h"
 
 __host__ __device__ int4 discreteDisAndAngle(float4 ppf, float min_angle, float d_angle) {
     int4 r;
@@ -136,7 +135,7 @@ __device__ void transModelAndScene(float3 m_r, float3 n_r_m, float3 m_i,
                                   float d_dist, unsigned int &alpha_idx){
     /*按照论文3.3节公式，计算转角：
     *用来计算把点对一端旋转到X轴上，另一端的夹角
-    *后面不采用这个大函数，拆分为：transPointPair()  和  transPointPair()
+    *后面不采用这个大函数，拆分为：transPointPair()-model  和  transPointPair()-scene
     */
     float transm[4][4], rot_x[4][4], rot_y[4][4], rot_z[4][4], T_tmp[4][4], T_m_g[4][4], T_s_g[4][4],
             T_tmp2[4][4], T[4][4];
@@ -275,7 +274,7 @@ __global__ void ppfKernel(float3 *points, float3 *norms, int4 *out, int count,
 }
 
 __global__ void ppfAngle(float3 *points, float3 *norms, float *out, int count,
-                           int refPointDownsampleFactor, float d_dist){
+                           int refPointDownsampleFactor, float d_dist) {
     if(count <= 1)
         return;
     int ind = threadIdx.x;

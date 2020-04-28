@@ -17,6 +17,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include "../include/PPF.h"
 using namespace Eigen;
 using namespace std;
 
